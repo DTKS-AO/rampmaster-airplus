@@ -93,7 +93,7 @@ export const columns: ColumnDef<any>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Ações</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => navigate(\`/reports/\${report.id}\`)}>
+            <DropdownMenuItem onClick={() => navigate(`/reports/${report.id}`)}>
               <FileText className="mr-2 h-4 w-4" />
               Ver Relatório
             </DropdownMenuItem>

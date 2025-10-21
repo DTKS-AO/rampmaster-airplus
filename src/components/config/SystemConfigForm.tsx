@@ -47,7 +47,7 @@ export function SystemConfigForm({ initialValues, onSuccess }: SystemConfigFormP
       await updateConfig.mutateAsync({
         config_key: 'system_config',
         config_value: values,
-      })
+      } as unknown as import('@/integrations/supabase/types').TablesInsert<'system_configs'>)
       onSuccess?.()
     } catch (error) {
       console.error('Error saving system config:', error)

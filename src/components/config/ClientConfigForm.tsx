@@ -57,10 +57,11 @@ export function ClientConfigForm({ clientId, initialValues, onSuccess }: ClientC
 
   const onSubmit = async (values: FormValues) => {
     try {
+      // Cast to the generated ClientConfigInsert shape so Supabase typed helpers accept it
       await updateConfig.mutateAsync({
         config_key: 'client_config',
         config_value: values,
-      })
+      } as unknown as import('@/integrations/supabase/types').TablesInsert<'client_configs'>)
       onSuccess?.()
     } catch (error) {
       console.error('Error saving client config:', error)

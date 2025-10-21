@@ -86,7 +86,7 @@ export function ReportConfigForm({
       await updateConfig.mutateAsync({
         config_key: 'report_config',
         config_value: values,
-      })
+      } as unknown as import('@/integrations/supabase/types').TablesInsert<'report_configs'>)
       onSuccess?.()
     } catch (error) {
       console.error('Error saving report config:', error)

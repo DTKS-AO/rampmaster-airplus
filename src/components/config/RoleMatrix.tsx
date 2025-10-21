@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { useRoles, usePermissions } from '@/hooks/queries/useConfig'
-import type { Role, Permission } from '@/types/config'
+import type { Tables } from '@/integrations/supabase/types'
 
 interface RoleMatrixProps {
   onTogglePermission: (roleId: string, permissionId: string, granted: boolean) => void
@@ -17,11 +17,11 @@ export function RoleMatrix({ onTogglePermission }: RoleMatrixProps) {
     return <div>Carregando...</div>
   }
 
-  const hasPermission = (role: Role, permissionId: string) => {
+  const hasPermission = (role: Tables<'roles'> & { permissions?: Tables<'permissions'>[] }, permissionId: string) => {
     return role.permissions?.some(p => p.id === permissionId)
   }
 
-  const isSystemRole = (role: Role) => role.is_system
+  const isSystemRole = (role: Tables<'roles'>) => role.is_system
 
   return (
     <Card>

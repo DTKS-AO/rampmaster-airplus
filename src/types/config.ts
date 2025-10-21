@@ -1,8 +1,9 @@
-import { Tables, TablesInsert } from '@/integrations/supabase/types'
+import { Tables, TablesInsert, Json } from '@/integrations/supabase/types'
 
 // Service Types
 export interface ServiceType extends Tables<'service_types'> {
-  checklist: ServiceChecklist[]
+  // Stored in DB as Json; keep a rich local type separately if needed
+  checklist: Json
 }
 
 export interface ServiceChecklist {
@@ -19,15 +20,15 @@ export interface ServiceChecklistItem {
 
 // Configuration Types
 export interface ClientConfig extends Tables<'client_configs'> {
-  config_value: ClientConfigValue
+  config_value: Json
 }
 
 export interface SystemConfig extends Tables<'system_configs'> {
-  config_value: SystemConfigValue
+  config_value: Json
 }
 
 export interface ReportConfig extends Tables<'report_configs'> {
-  config_value: ReportConfigValue
+  config_value: Json
 }
 
 export interface ClientConfigValue {
@@ -90,15 +91,15 @@ export type ServiceTypeInsert = TablesInsert<'service_types'> & {
 }
 
 export type ClientConfigInsert = TablesInsert<'client_configs'> & {
-  config_value: ClientConfigValue
+  config_value: Json
 }
 
 export type SystemConfigInsert = TablesInsert<'system_configs'> & {
-  config_value: SystemConfigValue
+  config_value: Json
 }
 
 export type ReportConfigInsert = TablesInsert<'report_configs'> & {
-  config_value: ReportConfigValue
+  config_value: Json
 }
 
 // Update Types
