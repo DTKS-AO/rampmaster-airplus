@@ -1,10 +1,7 @@
 -- Create service types enum
 CREATE TYPE public.service_type AS ENUM (
-  'limpeza_exterior',
-  'limpeza_completa',
-  'embarque',
-  'desembarque',
-  'embarque_desembarque'
+  'cleaning',
+  'boarding'
 );
 
 -- Create report status enum

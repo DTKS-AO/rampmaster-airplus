@@ -13,6 +13,9 @@ import NotFound from "./pages/NotFound";
 import Test from "./pages/Test";
 import Reports from "./pages/Reports";
 import ReportDetail from "./pages/ReportDetail";
+import { AirPlusDashboard } from "./pages/AirPlusDashboard";
+import { ClientDashboard } from "./pages/ClientDashboard";
+import { ConfigPage } from "./pages/Config";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +36,9 @@ const App = () => (
           <Route path="/reports/:id" element={<ReportDetail />} />
           <Route path="/reports/new" element={<ReportDetail />} />
           <Route path="/test" element={<Test />} />
+          <Route path="/dashboard/airplus" element={<AirPlusDashboard />} />
+          <Route path="/dashboard/client" element={<ClientDashboard />} />
+          <Route path="/config" element={<ConfigPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

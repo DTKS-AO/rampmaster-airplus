@@ -282,6 +282,116 @@ export type Database = {
           },
         ]
       }
+      shift_exports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_name: string
+          id: string
+          shift_id: string | null
+          type: Database["public"]["Enums"]["export_type"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_name: string
+          id?: string
+          shift_id?: string | null
+          type: Database["public"]["Enums"]["export_type"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_name?: string
+          id?: string
+          shift_id?: string | null
+          type?: Database["public"]["Enums"]["export_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_exports_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_template_employees: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          employee_id: string | null
+          id: string
+          template_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string | null
+          id?: string
+          template_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string | null
+          id?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_template_employees_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_template_employees_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "shift_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          horario_fim: string
+          horario_inicio: string
+          id: string
+          nome: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          horario_fim: string
+          horario_inicio: string
+          id?: string
+          nome: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          nome?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       shifts: {
         Row: {
           created_at: string | null
@@ -422,6 +532,39 @@ export type Database = {
           },
         ]
       }
+      user_notification_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          shift_reminders: boolean
+          shift_reports: boolean
+          shift_status_changes: boolean
+          shift_team_updates: boolean
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          shift_reminders?: boolean
+          shift_reports?: boolean
+          shift_status_changes?: boolean
+          shift_team_updates?: boolean
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          shift_reminders?: boolean
+          shift_reports?: boolean
+          shift_status_changes?: boolean
+          shift_team_updates?: boolean
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           client_id: string | null
@@ -456,6 +599,305 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      },
+      service_types: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          checklist: Json | null
+          active: boolean
+          required_photos: number
+          required_signatures: number
+          version: number
+          created_at: string
+          updated_at: string | null
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          checklist?: Json | null
+          active?: boolean
+          required_photos?: number
+          required_signatures?: number
+          version?: number
+          created_at?: string
+          updated_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          checklist?: Json | null
+          active?: boolean
+          required_photos?: number
+          required_signatures?: number
+          version?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+      },
+      service_reports: {
+        Row: {
+          id: string
+          client_id: string | null
+          shift_id: string | null
+          service_type: Database["public"]["Enums"]["service_type"]
+          aircraft_id: string | null
+          service_date: string
+          notes: string | null
+          status: Database["public"]["Enums"]["report_status"]
+          checklist: Json | null
+          created_at: string
+          updated_at: string | null
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          client_id?: string | null
+          shift_id?: string | null
+          service_type: Database["public"]["Enums"]["service_type"]
+          aircraft_id?: string | null
+          service_date: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          checklist?: Json | null
+          created_at?: string
+          updated_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          shift_id?: string | null
+          service_type?: Database["public"]["Enums"]["service_type"]
+          aircraft_id?: string | null
+          service_date?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          checklist?: Json | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+      },
+      report_photos: {
+        Row: {
+          id: string
+          report_id: string
+          url: string
+          type: string | null
+          created_at: string
+          updated_at: string | null
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          report_id: string
+          url: string
+          type?: string | null
+          created_at?: string
+          updated_at?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          report_id?: string
+          url?: string
+          type?: string | null
+          updated_at?: string | null
+        }
+      },
+      report_signatures: {
+        Row: {
+          id: string
+          report_id: string
+          signature_url: string
+          signer_name: string
+          signer_role: string
+          created_at: string
+          updated_at: string | null
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          report_id: string
+          signature_url: string
+          signer_name: string
+          signer_role: string
+          created_at?: string
+          updated_at?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          report_id?: string
+          signature_url?: string
+          signer_name?: string
+          signer_role?: string
+          updated_at?: string | null
+        }
+      },
+      client_configs: {
+        Row: {
+          id: string
+          client_id: string | null
+          config_key: string
+          config_value: Json
+          created_at: string
+          updated_at: string | null
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          client_id?: string | null
+          config_key: string
+          config_value: Json
+          created_at?: string
+          updated_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          config_key?: string
+          config_value?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+      },
+      system_configs: {
+        Row: {
+          id: string
+          config_key: string
+          config_value: Json
+          created_at: string
+          updated_at: string | null
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          config_key: string
+          config_value: Json
+          created_at?: string
+          updated_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          config_key?: string
+          config_value?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+      },
+      report_configs: {
+        Row: {
+          id: string
+          config_key: string
+          config_value: Json
+          created_at: string
+          updated_at: string | null
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          config_key: string
+          config_value: Json
+          created_at?: string
+          updated_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          config_key?: string
+          config_value?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+      },
+      roles: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          is_system: boolean
+          created_at: string
+          updated_at: string | null
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          is_system?: boolean
+          created_at?: string
+          updated_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          is_system?: boolean
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+      },
+      permissions: {
+        Row: {
+          id: string
+          resource: string
+          action: string
+          description: string | null
+          created_at: string
+          updated_at: string | null
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          resource: string
+          action: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          resource?: string
+          action?: string
+          description?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+      },
+      role_permissions: {
+        Row: {
+          id: string
+          role_id: string
+          permission_id: string
+          created_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          role_id: string
+          permission_id: string
+          created_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          role_id?: string
+          permission_id?: string
+        }
       }
     }
     Views: {
@@ -476,7 +918,10 @@ export type Database = {
     }
     Enums: {
       aircraft_status: "ativo" | "em_manutencao" | "inativo"
+      export_type: "pdf" | "csv"
       shift_status: "ativo" | "encerrado"
+      service_type: "cleaning" | "boarding" | "maintenance"
+      report_status: "draft" | "submitted" | "approved" | "rejected"
       user_role:
         | "super_admin"
         | "gestor"
@@ -612,7 +1057,10 @@ export const Constants = {
   public: {
     Enums: {
       aircraft_status: ["ativo", "em_manutencao", "inativo"],
+      export_type: ["pdf", "csv"],
       shift_status: ["ativo", "encerrado"],
+      service_type: ["cleaning", "boarding", "maintenance"],
+      report_status: ["draft", "submitted", "approved", "rejected"],
       user_role: [
         "super_admin",
         "gestor",

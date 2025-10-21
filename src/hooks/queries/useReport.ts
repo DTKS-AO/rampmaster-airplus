@@ -1,11 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
-
-type Report = Tables<'service_reports'>;
-type ReportInsert = TablesInsert<'service_reports'>;
-type ReportUpdate = TablesUpdate<'service_reports'>;
+import type { ServiceReport } from '@/integrations/supabase/report-types';
 
 // Query keys
 const REPORT_KEY = 'reports';
