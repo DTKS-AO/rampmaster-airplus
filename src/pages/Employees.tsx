@@ -1,12 +1,23 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { User } from "@supabase/supabase-js";
+import type { Tables } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -14,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PhotoUpload } from "@/components/ui/photo-upload";
 import {
   Table,
   TableBody,
@@ -22,6 +34,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+// Hooks and validation
+import {
+  useEmployeeList,
+  useCreateEmployee,
+  useUpdateEmployee,
+  useDeleteEmployee,
+  useUploadEmployeePhoto,
+} from "@/hooks/queries/useEmployee";
+import { employeeSchema, type EmployeeFormValues } from "@/lib/validations/employee";
 import {
   Dialog,
   DialogContent,
@@ -34,169 +56,120 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Users, Users2, Plus, Pencil, Trash2, Search } from "lucide-react";
 
 export default function Employees() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<any>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [user, setUser] = useState<User | null>(null);
 
-  const [formData, setFormData] = useState<{
-    nome: string;
-    bi: string;
-    numero_mecanografico: string;
-    telefone: string;
-    email: string;
-    funcao: "super_admin" | "gestor" | "supervisor" | "tecnico" | "auxiliar" | "cliente";
-    foto_url: string;
-  }>({
-    nome: "",
-    bi: "",
-    numero_mecanografico: "",
-    telefone: "",
-    email: "",
-    funcao: "tecnico",
-    foto_url: "",
-  });
-
+  // Check and update user session when component mounts
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-        if (!session?.user) navigate("/auth");
-      }
-    );
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (!session?.user) navigate("/auth");
-      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
+  const [editingEmployee, setEditingEmployee] = useState<Tables<'employees'> | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  useEffect(() => {
-    if (user) fetchEmployees();
-  }, [user]);
-
-  const fetchEmployees = async () => {
-    const { data, error } = await supabase
-      .from("employees")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast.error("Erro ao carregar funcionários");
-      console.error(error);
-    } else {
-      setEmployees(data || []);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (editingEmployee) {
-      const { error } = await supabase
-        .from("employees")
-        .update({
-          nome: formData.nome,
-          bi: formData.bi,
-          numero_mecanografico: formData.numero_mecanografico,
-          telefone: formData.telefone,
-          email: formData.email,
-          funcao: formData.funcao,
-          foto_url: formData.foto_url || null,
-          updated_by: user?.id,
-        })
-        .eq("id", editingEmployee.id);
-
-      if (error) {
-        toast.error("Erro ao atualizar funcionário");
-        console.error(error);
-      } else {
-        toast.success("Funcionário atualizado");
-        setIsDialogOpen(false);
-        resetForm();
-        fetchEmployees();
-      }
-    } else {
-      const { error } = await supabase.from("employees").insert([{
-        nome: formData.nome,
-        bi: formData.bi,
-        numero_mecanografico: formData.numero_mecanografico,
-        telefone: formData.telefone,
-        email: formData.email,
-        funcao: formData.funcao,
-        foto_url: formData.foto_url || null,
-        created_by: user?.id,
-      }]);
-
-      if (error) {
-        toast.error("Erro ao criar funcionário");
-        console.error(error);
-      } else {
-        toast.success("Funcionário criado");
-        setIsDialogOpen(false);
-        resetForm();
-        fetchEmployees();
-      }
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja eliminar este funcionário?")) return;
-
-    const { error } = await supabase.from("employees").delete().eq("id", id);
-
-    if (error) {
-      toast.error("Erro ao eliminar funcionário");
-      console.error(error);
-    } else {
-      toast.success("Funcionário eliminado");
-      fetchEmployees();
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
+  // Form setup
+  const form = useForm<EmployeeFormValues>({
+    resolver: zodResolver(employeeSchema),
+    defaultValues: {
       nome: "",
       bi: "",
       numero_mecanografico: "",
       telefone: "",
       email: "",
       funcao: "tecnico",
-      foto_url: "",
-    });
-    setEditingEmployee(null);
+      foto_url: null,
+      ativo: true,
+    },
+  });
+
+  // Queries and mutations
+  const { data: employees, isLoading } = useEmployeeList({
+    active: true,
+  });
+  const createMutation = useCreateEmployee();
+  const updateMutation = useUpdateEmployee();
+  const deleteMutation = useDeleteEmployee();
+  const uploadMutation = useUploadEmployeePhoto();
+
+  const onSubmit = async (data: EmployeeFormValues) => {
+    try {
+      const employeeData = {
+        nome: data.nome,
+        bi: data.bi,
+        numero_mecanografico: data.numero_mecanografico,
+        telefone: data.telefone,
+        email: data.email,
+        funcao: data.funcao,
+        foto_url: data.foto_url || null,
+        ativo: data.ativo,
+        user_id: data.user_id || null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
+      };
+
+      if (editingEmployee) {
+        await updateMutation.mutateAsync({
+          id: editingEmployee.id,
+          ...employeeData,
+        });
+      } else {
+        await createMutation.mutateAsync(employeeData);
+      }
+      setIsDialogOpen(false);
+      form.reset();
+      setEditingEmployee(null);
+    } catch (error) {
+      console.error('Submit error:', error);
+    }
   };
 
-  const openEditDialog = (item: any) => {
-    setEditingEmployee(item);
-    setFormData({
-      nome: item.nome,
-      bi: item.bi,
-      numero_mecanografico: item.numero_mecanografico,
-      telefone: item.telefone,
-      email: item.email,
-      funcao: item.funcao as "super_admin" | "gestor" | "supervisor" | "tecnico" | "auxiliar" | "cliente",
-      foto_url: item.foto_url || "",
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja eliminar este funcionário?")) return;
+    await deleteMutation.mutateAsync(id);
+  };
+
+  const handlePhotoUpload = async (file: File) => {
+    return uploadMutation.mutateAsync({
+      file,
+      employeeId: editingEmployee?.id || 'new',
+    });
+  };
+
+  const openEditDialog = (employee: any) => {
+    setEditingEmployee(employee);
+    form.reset({
+      nome: employee.nome,
+      bi: employee.bi,
+      numero_mecanografico: employee.numero_mecanografico,
+      telefone: employee.telefone,
+      email: employee.email,
+      funcao: employee.funcao,
+      foto_url: employee.foto_url,
+      ativo: employee.ativo,
     });
     setIsDialogOpen(true);
   };
 
-  const filteredEmployees = employees.filter(
+  const filteredEmployees = employees?.filter(
     (item) =>
       item.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.bi.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.numero_mecanografico.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) ?? [];
 
   const getFuncaoBadge = (funcao: string) => {
     const variants: any = {
@@ -209,7 +182,7 @@ export default function Employees() {
     return <Badge variant={variants[funcao] || "outline"}>{funcao.replace("_", " ")}</Badge>;
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen gradient-sky flex items-center justify-center">
         <div className="animate-pulse">
@@ -237,7 +210,10 @@ export default function Employees() {
             open={isDialogOpen}
             onOpenChange={(open) => {
               setIsDialogOpen(open);
-              if (!open) resetForm();
+              if (!open) {
+                form.reset();
+                setEditingEmployee(null);
+              }
             }}
           >
             <DialogTrigger asChild>
@@ -257,114 +233,144 @@ export default function Employees() {
                     : "Registe um novo funcionário no sistema"}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="nome">Nome Completo *</Label>
-                    <Input
-                      id="nome"
-                      value={formData.nome}
-                      onChange={(e) =>
-                        setFormData({ ...formData, nome: e.target.value })
-                      }
-                      required
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="foto_url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Foto</FormLabel>
+                        <FormControl>
+                          <PhotoUpload
+                            value={field.value}
+                            onChange={field.onChange}
+                            onUpload={handlePhotoUpload}
+                            isUploading={uploadMutation.isPending}
+                            disabled={form.formState.isSubmitting}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="nome"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nome completo" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="bi"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>BI *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="000000000LA000" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="numero_mecanografico"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Número Mecanográfico *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="APM000" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="funcao"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Função *</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione a função" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="tecnico">Técnico</SelectItem>
+                              <SelectItem value="auxiliar">Auxiliar</SelectItem>
+                              <SelectItem value="supervisor">Supervisor</SelectItem>
+                              <SelectItem value="gestor">Gestor</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="telefone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Telefone *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="+244900000000" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email *</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="email" 
+                              placeholder="email@airplus.co.ao" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="bi">Bilhete de Identidade *</Label>
-                    <Input
-                      id="bi"
-                      value={formData.bi}
-                      onChange={(e) =>
-                        setFormData({ ...formData, bi: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="numero_mecanografico">Nº Mecanográfico *</Label>
-                    <Input
-                      id="numero_mecanografico"
-                      value={formData.numero_mecanografico}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          numero_mecanografico: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="telefone">Telefone *</Label>
-                    <Input
-                      id="telefone"
-                      type="tel"
-                      placeholder="+244-XXX-XXX-XXX"
-                      value={formData.telefone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, telefone: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="funcao">Função *</Label>
-                    <Select
-                      value={formData.funcao}
-                      onValueChange={(value: "super_admin" | "gestor" | "supervisor" | "tecnico" | "auxiliar" | "cliente") =>
-                        setFormData({ ...formData, funcao: value })
-                      }
+                  <DialogFooter>
+                    <Button
+                      type="submit"
+                      className="gradient-primary"
+                      disabled={form.formState.isSubmitting}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="tecnico">Técnico</SelectItem>
-                        <SelectItem value="auxiliar">Auxiliar</SelectItem>
-                        <SelectItem value="supervisor">Supervisor</SelectItem>
-                        <SelectItem value="gestor">Gestor</SelectItem>
-                        <SelectItem value="super_admin">Super Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="foto_url">URL da Foto (opcional)</Label>
-                    <Input
-                      id="foto_url"
-                      type="url"
-                      placeholder="https://..."
-                      value={formData.foto_url}
-                      onChange={(e) =>
-                        setFormData({ ...formData, foto_url: e.target.value })
-                      }
-                    />
-                  </div>
+                      {form.formState.isSubmitting && (
+                        <Users2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      {editingEmployee ? 'Atualizar' : 'Criar'}
+                    </Button>
+                  </DialogFooter>
                 </div>
-
-                <DialogFooter>
-                  <Button type="submit" className="gradient-primary">
-                    {editingEmployee ? "Atualizar" : "Criar"}
-                  </Button>
-                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
