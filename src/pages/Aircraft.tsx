@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database, Tables } from "@/integrations/supabase/types";
 import { User } from "@supabase/supabase-js";
+import { useQuery } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -54,26 +56,56 @@ export default function Aircraft() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [aircraft, setAircraft] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingAircraft, setEditingAircraft] = useState<any>(null);
+  const [editingAircraft, setEditingAircraft] = useState<Tables<'aircraft'> | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Query hooks
+  const { data: aircraft = [] } = useAircraftList();
+  const { data: clients = [] } = useQuery<Tables<'clients'>[]>({
+    queryKey: ['clients'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        toast.error('Erro ao carregar clientes');
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  // Mutation hooks
+  const createMutation = useCreateAircraft();
+  const updateMutation = useUpdateAircraft();
+  const deleteMutation = useDeleteAircraft();
   
-  // Form state
-  const [formData, setFormData] = useState<{
-    matricula: string;
-    modelo: string;
-    client_id: string;
-    estado: "ativo" | "em_manutencao" | "inativo";
-  }>({
-    matricula: "",
-    modelo: "",
-    client_id: "",
-    estado: "ativo",
+  // Form setup
+  const form = useForm<AircraftFormValues>({
+    resolver: zodResolver(aircraftSchema),
+    defaultValues: {
+      matricula: "",
+      modelo: "",
+      client_id: "",
+      estado: "ativo",
+      ativo: true
+    }
   });
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (!session?.user) {
+        navigate("/auth");
+      }
+      setLoading(false);
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUser(session?.user ?? null);
@@ -83,135 +115,67 @@ export default function Aircraft() {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      }
-      setLoading(false);
-    });
-
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchAircraft();
-      fetchClients();
-    }
-  }, [user]);
-
-  const fetchAircraft = async () => {
-    const { data, error } = await supabase
-      .from("aircraft")
-      .select(`
-        *,
-        clients (
-          nome,
-          codigo
-        )
-      `)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast.error("Erro ao carregar aeronaves");
-      console.error(error);
-    } else {
-      setAircraft(data || []);
-    }
-  };
-
-  const fetchClients = async () => {
-    const { data, error } = await supabase
-      .from("clients")
-      .select("*")
-      .eq("ativo", true)
-      .order("nome");
-
-    if (error) {
-      toast.error("Erro ao carregar clientes");
-      console.error(error);
-    } else {
-      setClients(data || []);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (editingAircraft) {
-      const { error } = await supabase
-        .from("aircraft")
-        .update({
-          matricula: formData.matricula,
-          modelo: formData.modelo,
-          client_id: formData.client_id,
-          estado: formData.estado,
-          updated_by: user?.id,
-        })
-        .eq("id", editingAircraft.id);
-
-      if (error) {
-        toast.error("Erro ao atualizar aeronave");
-        console.error(error);
-      } else {
-        toast.success("Aeronave atualizada com sucesso");
-        setIsDialogOpen(false);
-        resetForm();
-        fetchAircraft();
-      }
-    } else {
-      const { error } = await supabase.from("aircraft").insert([{
-        matricula: formData.matricula,
-        modelo: formData.modelo,
-        client_id: formData.client_id,
-        estado: formData.estado,
+  const onSubmit = async (data: AircraftFormValues) => {
+    try {
+      const aircraftData = {
+        matricula: data.matricula,
+        modelo: data.modelo,
+        client_id: data.client_id,
+        estado: data.estado || 'ativo',
+        ativo: data.ativo ?? true,
+        ultima_limpeza: data.ultima_limpeza,
         created_by: user?.id,
-      }]);
+        updated_by: user?.id
+      } as const;
 
-      if (error) {
-        toast.error("Erro ao criar aeronave");
-        console.error(error);
+      if (editingAircraft) {
+        await updateMutation.mutateAsync({
+          id: editingAircraft.id,
+          ...aircraftData,
+        });
       } else {
-        toast.success("Aeronave criada com sucesso");
-        setIsDialogOpen(false);
-        resetForm();
-        fetchAircraft();
+        await createMutation.mutateAsync(aircraftData);
       }
+      setIsDialogOpen(false);
+      form.reset();
+      setEditingAircraft(null);
+    } catch (error) {
+      console.error('Submit error:', error);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja eliminar esta aeronave?")) return;
 
-    const { error } = await supabase.from("aircraft").delete().eq("id", id);
-
-    if (error) {
-      toast.error("Erro ao eliminar aeronave");
-      console.error(error);
-    } else {
-      toast.success("Aeronave eliminada");
-      fetchAircraft();
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (error) {
+      console.error('Delete error:', error);
     }
   };
 
   const resetForm = () => {
-    setFormData({
+    form.reset({
       matricula: "",
       modelo: "",
       client_id: "",
       estado: "ativo",
+      ativo: true
     });
     setEditingAircraft(null);
   };
 
-  const openEditDialog = (item: any) => {
+  const openEditDialog = (item: Tables<'aircraft'>) => {
     setEditingAircraft(item);
-    setFormData({
+    form.reset({
       matricula: item.matricula,
       modelo: item.modelo,
       client_id: item.client_id,
-      estado: item.estado as "ativo" | "em_manutencao" | "inativo",
+      estado: item.estado || "ativo",
+      ativo: item.ativo || true
     });
     setIsDialogOpen(true);
   };
@@ -219,7 +183,7 @@ export default function Aircraft() {
   const filteredAircraft = aircraft.filter((item) =>
     item.matricula.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.modelo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.clients?.nome.toLowerCase().includes(searchTerm.toLowerCase())
+    clients.find(c => c.id === item.client_id)?.nome.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getEstadoBadge = (estado: string) => {
@@ -276,80 +240,104 @@ export default function Aircraft() {
                     : "Registe uma nova aeronave no sistema"}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="matricula">Matrícula *</Label>
-                  <Input
-                    id="matricula"
-                    placeholder="Ex: D2-ABC"
-                    value={formData.matricula}
-                    onChange={(e) =>
-                      setFormData({ ...formData, matricula: e.target.value.toUpperCase() })
-                    }
-                    required
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="matricula"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Matrícula *</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Ex: D2-ABC"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="modelo">Modelo *</Label>
-                  <Input
-                    id="modelo"
-                    placeholder="Ex: Boeing 737"
-                    value={formData.modelo}
-                    onChange={(e) =>
-                      setFormData({ ...formData, modelo: e.target.value })
-                    }
-                    required
+                  <FormField
+                    control={form.control}
+                    name="modelo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Modelo *</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Ex: Boeing 737"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="client_id">Cliente *</Label>
-                  <Select
-                    value={formData.client_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, client_id: value })
-                    }
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.nome} ({client.codigo})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <FormField
+                    control={form.control}
+                    name="client_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cliente *</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o cliente" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {clients.map((client) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                {client.nome} ({client.codigo})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <div className="space-y-2">
-                  <Label htmlFor="estado">Estado *</Label>
-                  <Select
-                    value={formData.estado}
-                    onValueChange={(value: "ativo" | "em_manutencao" | "inativo") =>
-                      setFormData({ ...formData, estado: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ativo">Ativo</SelectItem>
-                      <SelectItem value="em_manutencao">Em Manutenção</SelectItem>
-                      <SelectItem value="inativo">Inativo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <FormField
+                    control={form.control}
+                    name="estado"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estado *</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="ativo">Ativo</SelectItem>
+                            <SelectItem value="em_manutencao">Em Manutenção</SelectItem>
+                            <SelectItem value="inativo">Inativo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <DialogFooter>
-                  <Button type="submit" className="gradient-primary">
-                    {editingAircraft ? "Atualizar" : "Criar"}
-                  </Button>
-                </DialogFooter>
-              </form>
+                  <DialogFooter>
+                    <Button type="submit" className="gradient-primary">
+                      {editingAircraft ? "Atualizar" : "Criar"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
         </div>
@@ -395,10 +383,7 @@ export default function Aircraft() {
                       </TableCell>
                       <TableCell>{item.modelo}</TableCell>
                       <TableCell>
-                        {item.clients?.nome}
-                        <span className="text-xs text-muted-foreground ml-2">
-                          ({item.clients?.codigo})
-                        </span>
+                        {clients.find(c => c.id === item.client_id)?.nome}
                       </TableCell>
                       <TableCell>{getEstadoBadge(item.estado)}</TableCell>
                       <TableCell>

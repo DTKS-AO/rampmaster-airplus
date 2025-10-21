@@ -66,17 +66,43 @@ export default function Employees() {
   // Check and update user session when component mounts
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      if (!session?.user) {
+        navigate('/auth');
+        return;
+      }
+      setUser(session.user);
+      
+      // Check if user has permission to access this page
+      supabase.rpc('has_role', { 
+        _role: 'super_admin',
+        _user_id: session.user.id 
+      }).then(({ data: isAdmin }) => {
+        if (!isAdmin) {
+          supabase.rpc('has_role', {
+            _role: 'gestor',
+            _user_id: session.user.id
+          }).then(({ data: isManager }) => {
+            if (!isManager) {
+              toast.error('Acesso não autorizado');
+              navigate('/');
+            }
+          });
+        }
+      });
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      if (!session?.user) {
+        navigate('/auth');
+        return;
+      }
+      setUser(session.user);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
   const [editingEmployee, setEditingEmployee] = useState<Tables<'employees'> | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -142,13 +168,21 @@ export default function Employees() {
   };
 
   const handlePhotoUpload = async (file: File) => {
-    return uploadMutation.mutateAsync({
-      file,
-      employeeId: editingEmployee?.id || 'new',
-    });
+    try {
+      const url = await uploadMutation.mutateAsync({
+        file,
+        employeeId: editingEmployee?.id || 'new',
+      });
+      toast.success('Foto carregada com sucesso');
+      return url;
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Erro ao carregar foto');
+      throw error;
+    }
   };
 
-  const openEditDialog = (employee: any) => {
+  const openEditDialog = (employee: Tables<'employees'>) => {
     setEditingEmployee(employee);
     form.reset({
       nome: employee.nome,
@@ -158,7 +192,8 @@ export default function Employees() {
       email: employee.email,
       funcao: employee.funcao,
       foto_url: employee.foto_url,
-      ativo: employee.ativo,
+      ativo: employee.ativo ?? true,
+      user_id: employee.user_id,
     });
     setIsDialogOpen(true);
   };

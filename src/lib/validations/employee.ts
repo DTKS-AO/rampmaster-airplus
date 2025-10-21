@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Database } from '@/integrations/supabase/types';
+import { normalizeAngolanPhone, normalizeBI, normalizeMechanicNumber } from '@/lib/utils/format';
 
 type UserRole = Database['public']['Enums']['user_role'];
 
@@ -17,17 +18,20 @@ export const employeeSchema = z.object({
     .min(14, 'BI deve ter 14 caracteres')
     .max(14, 'BI deve ter 14 caracteres')
     .regex(/^[0-9A-Z]+$/, 'Formato de BI inválido')
-    .trim(),
+    .trim()
+    .transform(val => normalizeBI(val)),
   numero_mecanografico: z
     .string()
     .min(3, 'Número mecanográfico deve ter pelo menos 3 caracteres')
     .max(20, 'Número mecanográfico muito longo')
     .regex(/^[A-Z0-9]+$/, 'Formato inválido')
-    .trim(),
+    .trim()
+    .transform(val => normalizeMechanicNumber(val)),
   telefone: z
     .string()
     .regex(angolanPhoneRegex, 'Número de telefone inválido')
-    .trim(),
+    .trim()
+    .transform(val => normalizeAngolanPhone(val)),
   email: z
     .string()
     .email('Email inválido')
