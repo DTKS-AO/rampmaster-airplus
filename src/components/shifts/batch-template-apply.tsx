@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { format, addDays, eachDayOfInterval } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, addDays } from 'date-fns';
 import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -27,12 +27,25 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 
+interface ShiftTemplate {
+  id: string;
+  nome: string;
+  descricao?: string;
+  horario_inicio: string;
+  horario_fim: string;
+  supervisor_id?: string;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  updated_by?: string;
+  shift_template_employees: Array<{
+    employee: Tables<'employees'>;
+  }>;
+}
+
 interface BatchTemplateApplyProps {
-  template: Tables<'shift_templates'> & {
-    shift_template_employees: Array<{
-      employee: Tables<'employees'>;
-    }>;
-  };
+  template: ShiftTemplate;
 }
 
 export function BatchTemplateApply({ template }: BatchTemplateApplyProps) {

@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { User } from "@supabase/supabase-js";
 import type { Tables } from "@/integrations/supabase/types";
+import { ExportEmployee } from '@/components/employees/export-employee';
 import { supabase } from "@/integrations/supabase/client";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -241,7 +242,9 @@ export default function Employees() {
             </p>
           </div>
 
-          <Dialog
+          <div className="flex items-center gap-2">
+            <ExportEmployee data={filteredEmployees} />
+            <Dialog
             open={isDialogOpen}
             onOpenChange={(open) => {
               setIsDialogOpen(open);

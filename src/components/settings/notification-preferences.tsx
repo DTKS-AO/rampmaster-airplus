@@ -1,6 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Settings2, Loader2 } from 'lucide-react';
+
+interface NotificationPreferences {
+  id: string;
+  user_id: string;
+  shift_status_changes: boolean;
+  shift_team_updates: boolean;
+  shift_reminders: boolean;
+  shift_reports: boolean;
+  created_at: string;
+  updated_at: string;
+}
 import {
   Dialog,
   DialogContent,
@@ -26,11 +37,31 @@ export function NotificationPreferences() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('user_notification_preferences')
         .select('*')
         .eq('user_id', user.id)
         .single();
+
+      // If preferences don't exist, create them
+      if (!data && !error) {
+        const { data: newPrefs, error: createError } = await supabase
+          .from('user_notification_preferences')
+          .insert([{
+            user_id: user.id,
+            shift_status_changes: true,
+            shift_team_updates: true,
+            shift_reminders: true,
+            shift_reports: true
+          }])
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        data = newPrefs;
+      } else if (error) {
+        throw error;
+      }
 
       if (error) throw error;
       return data;
@@ -39,7 +70,7 @@ export function NotificationPreferences() {
 
   // Update preferences mutation
   const updatePreferences = useMutation({
-    mutationFn: async (updates: Partial<typeof preferences>) => {
+    mutationFn: async (updates: Partial<NotificationPreferences>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
@@ -59,7 +90,7 @@ export function NotificationPreferences() {
     },
   });
 
-  const handleToggle = (key: keyof typeof preferences) => {
+  const handleToggle = (key: keyof NotificationPreferences) => {
     if (!preferences) return;
     
     updatePreferences.mutate({
