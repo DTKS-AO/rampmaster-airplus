@@ -20,10 +20,10 @@ export function useShifts(options?: {
         .from('shifts')
         .select(`
           *,
-          supervisor:employees(id, nome),
+          supervisor:employees(*),
           shift_employees(
             *,
-            employee:employees(id, nome, foto_url)
+            employee:employees(*)
           )
         `);
 
@@ -52,10 +52,10 @@ export function useShift(id: string) {
         .from('shifts')
         .select(`
           *,
-          supervisor:employees(id, nome),
+          supervisor:employees(*),
           shift_employees(
             *,
-            employee:employees(id, nome, foto_url)
+            employee:employees(*)
           )
         `)
         .eq('id', id)

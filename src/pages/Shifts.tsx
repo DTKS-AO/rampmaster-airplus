@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format, formatISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -45,6 +46,7 @@ import { shiftSchema } from '@/lib/validations/shift';
 import { ShiftForm } from '@/components/shifts/shift-form';
 
 export default function Shifts() {
+  const navigate = useNavigate();
   const { data: shifts, isLoading } = useShifts();
   const { data: employees } = useEmployees();
   const createShift = useCreateShift();
@@ -186,16 +188,25 @@ export default function Shifts() {
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingShift(shift);
-                          setIsEditOpen(true);
-                        }}
-                      >
-                        Editar
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingShift(shift);
+                            setIsEditOpen(true);
+                          }}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/shifts/${shift.id}`)}
+                        >
+                          Detalhes
+                        </Button>
+                      </div>
                       <Button
                         variant="destructive"
                         size="sm"
