@@ -11,10 +11,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { supabase } from '@/integrations/supabase/client';
 
 // We'll use jspdf and jspdf-autotable for PDF generation
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import type { UserConfig } from 'jspdf-autotable';
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: UserConfig) => void;
+  }
+}
 
 type ShiftWithEmployees = Tables<'shifts'> & {
   supervisor?: Tables<'employees'>;
@@ -130,6 +137,16 @@ export function ShiftReport({ shift }: ShiftReportProps) {
       // Save the PDF
       const fileName = `turno-${shift.id}-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
       doc.save(fileName);
+      
+      // Track export
+      await supabase
+        .from('shift_exports')
+        .insert({
+          shift_id: shift.id,
+          type: 'pdf',
+          file_name: fileName,
+        });
+
       toast.success('Relatório gerado com sucesso');
     } catch (error) {
       console.error('PDF generation error:', error);
