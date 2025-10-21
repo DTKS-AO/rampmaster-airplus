@@ -10,7 +10,6 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Form,
   FormControl,
@@ -35,8 +34,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-// Hooks and validation
 import {
   useEmployeeList,
   useCreateEmployee,
@@ -63,47 +60,6 @@ export default function Employees() {
   const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-
-  // Check and update user session when component mounts
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) {
-        navigate('/auth');
-        return;
-      }
-      setUser(session.user);
-      
-      // Check if user has permission to access this page
-      supabase.rpc('has_role', { 
-        _role: 'super_admin',
-        _user_id: session.user.id 
-      }).then(({ data: isAdmin }) => {
-        if (!isAdmin) {
-          supabase.rpc('has_role', {
-            _role: 'gestor',
-            _user_id: session.user.id
-          }).then(({ data: isManager }) => {
-            if (!isManager) {
-              toast.error('Acesso não autorizado');
-              navigate('/');
-            }
-          });
-        }
-      });
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
-        navigate('/auth');
-        return;
-      }
-      setUser(session.user);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
   const [editingEmployee, setEditingEmployee] = useState<Tables<'employees'> | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -116,21 +72,86 @@ export default function Employees() {
       numero_mecanografico: "",
       telefone: "",
       email: "",
-      funcao: "tecnico",
+      funcao: "tecnico" as const,
       foto_url: null,
       ativo: true,
+      user_id: null,
     },
   });
 
-  // Queries and mutations
-  const { data: employees, isLoading } = useEmployeeList({
-    active: true,
-  });
-  const createMutation = useCreateEmployee();
-  const updateMutation = useUpdateEmployee();
-  const deleteMutation = useDeleteEmployee();
-  const uploadMutation = useUploadEmployeePhoto();
+  // Session and roles check
+  useEffect(() => {
+    const checkUserAccess = async (session: { user: User }) => {
+      if (!session?.user) {
+        navigate('/auth');
+        return;
+      }
+      setUser(session.user);
 
+      try {
+        const { data: isAdmin } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .eq('role', 'super_admin')
+          .maybeSingle();
+
+        if (!isAdmin) {
+          const { data: isManager } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .eq('role', 'gestor')
+            .maybeSingle();
+
+          if (!isManager) {
+            toast.error('Acesso não autorizado');
+            navigate('/');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking roles:', error);
+        toast.error('Erro ao verificar permissões');
+        navigate('/');
+      }
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        checkUserAccess(session);
+      } else {
+        navigate('/auth');
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        navigate('/auth');
+        return;
+      }
+      setUser(session.user);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  // Queries and mutations
+  const { data: employeesData, isLoading } = useEmployeeList({ active: true });
+  const employees = employeesData ?? [];
+  const createEmployee = useCreateEmployee();
+  const updateEmployee = useUpdateEmployee();
+  const deleteEmployee = useDeleteEmployee();
+  const uploadPhoto = useUploadEmployeePhoto();
+
+  // Filtered employees list
+  const filteredEmployees = employees.filter((item) =>
+    item.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.bi.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.numero_mecanografico.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.email?.toLowerCase() ?? "").includes(searchTerm.toLowerCase())
+  );
+
+  // Event handlers
   const onSubmit = async (data: EmployeeFormValues) => {
     try {
       const employeeData = {
@@ -148,29 +169,38 @@ export default function Employees() {
       };
 
       if (editingEmployee) {
-        await updateMutation.mutateAsync({
+        await updateEmployee.mutateAsync({
           id: editingEmployee.id,
           ...employeeData,
         });
+        toast.success('Funcionário atualizado com sucesso');
       } else {
-        await createMutation.mutateAsync(employeeData);
+        await createEmployee.mutateAsync(employeeData);
+        toast.success('Funcionário criado com sucesso');
       }
       setIsDialogOpen(false);
       form.reset();
       setEditingEmployee(null);
     } catch (error) {
       console.error('Submit error:', error);
+      toast.error('Erro ao salvar funcionário');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja eliminar este funcionário?")) return;
-    await deleteMutation.mutateAsync(id);
+    try {
+      await deleteEmployee.mutateAsync(id);
+      toast.success('Funcionário eliminado com sucesso');
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Erro ao eliminar funcionário');
+    }
   };
 
   const handlePhotoUpload = async (file: File) => {
     try {
-      const url = await uploadMutation.mutateAsync({
+      const url = await uploadPhoto.mutateAsync({
         file,
         employeeId: editingEmployee?.id || 'new',
       });
@@ -199,16 +229,9 @@ export default function Employees() {
     setIsDialogOpen(true);
   };
 
-  const filteredEmployees = employees?.filter(
-    (item) =>
-      item.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.bi.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.numero_mecanografico.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.email.toLowerCase().includes(searchTerm.toLowerCase())
-  ) ?? [];
-
+  // UI helper functions
   const getFuncaoBadge = (funcao: string) => {
-    const variants: any = {
+    const variants: Record<string, "destructive" | "default" | "secondary" | "outline"> = {
       super_admin: "destructive",
       gestor: "default",
       supervisor: "secondary",
@@ -217,6 +240,286 @@ export default function Employees() {
     };
     return <Badge variant={variants[funcao] || "outline"}>{funcao.replace("_", " ")}</Badge>;
   };
+
+  const renderForm = () => (
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <div className="space-y-4">
+        <FormField
+          control={form.control}
+          name="foto_url"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Foto</FormLabel>
+              <FormControl>
+                <PhotoUpload
+                  value={field.value}
+                  onChange={field.onChange}
+                  onUpload={handlePhotoUpload}
+                  isUploading={uploadPhoto.isPending}
+                  disabled={form.formState.isSubmitting}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="nome"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nome *</FormLabel>
+                <FormControl>
+                  <Input placeholder="Nome completo" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="bi"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>BI *</FormLabel>
+                <FormControl>
+                  <Input placeholder="000000000LA000" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="numero_mecanografico"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Número Mecanográfico *</FormLabel>
+                <FormControl>
+                  <Input placeholder="APM000" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="funcao"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Função *</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a função" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="tecnico">Técnico</SelectItem>
+                    <SelectItem value="auxiliar">Auxiliar</SelectItem>
+                    <SelectItem value="supervisor">Supervisor</SelectItem>
+                    <SelectItem value="gestor">Gestor</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="telefone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Telefone *</FormLabel>
+                <FormControl>
+                  <Input placeholder="+244900000000" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email *</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="email" 
+                    placeholder="email@airplus.co.ao" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="submit"
+            className="gradient-primary"
+            disabled={form.formState.isSubmitting}
+          >
+            {form.formState.isSubmitting && (
+              <Users2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            {editingEmployee ? 'Atualizar' : 'Criar'}
+          </Button>
+        </DialogFooter>
+      </div>
+    </form>
+  );
+
+  const renderDialog = () => {
+    return (
+      <Dialog 
+        open={isDialogOpen} 
+        onOpenChange={setIsDialogOpen}
+      >
+        <DialogTrigger asChild>
+          <Button className="gradient-primary">
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Funcionário
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingEmployee ? "Editar Funcionário" : "Novo Funcionário"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingEmployee
+                ? "Atualize os dados do funcionário"
+                : "Registe um novo funcionário no sistema"}
+            </DialogDescription>
+          </DialogHeader>
+          {renderForm()}
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  const renderEmployeeList = () => (
+    <Card>
+      <CardHeader>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Pesquisar por nome, BI, nº mecanográfico ou email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Funcionário</TableHead>
+              <TableHead>BI</TableHead>
+              <TableHead>Nº Mecanográfico</TableHead>
+              <TableHead>Telefone</TableHead>
+              <TableHead>Função</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredEmployees.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Nenhum funcionário registado
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredEmployees.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarImage src={item.foto_url ?? ''} />
+                        <AvatarFallback>
+                          {item.nome
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .substring(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{item.nome}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {item.email}
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">{item.bi}</TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {item.numero_mecanografico}
+                  </TableCell>
+                  <TableCell>{item.telefone}</TableCell>
+                  <TableCell>{getFuncaoBadge(item.funcao)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(item)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+
+  const renderHeader = () => (
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div>
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Users className="h-8 w-8 text-primary" />
+          Funcionários
+        </h1>
+        <p className="text-muted-foreground">
+          Gestão do quadro de pessoal AirPlus
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <ExportEmployee data={filteredEmployees} />
+      </div>
+    </div>
+  );
 
   if (isLoading) {
     return (
@@ -231,278 +534,11 @@ export default function Employees() {
   return (
     <MainLayout user={user}>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Users className="h-8 w-8 text-primary" />
-              Funcionários
-            </h1>
-            <p className="text-muted-foreground">
-              Gestão do quadro de pessoal AirPlus
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ExportEmployee data={filteredEmployees} />
-            <Dialog
-            open={isDialogOpen}
-            onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) {
-                form.reset();
-                setEditingEmployee(null);
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button className="gradient-primary">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Funcionário
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingEmployee ? "Editar Funcionário" : "Novo Funcionário"}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingEmployee
-                    ? "Atualize os dados do funcionário"
-                    : "Registe um novo funcionário no sistema"}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="foto_url"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Foto</FormLabel>
-                        <FormControl>
-                          <PhotoUpload
-                            value={field.value}
-                            onChange={field.onChange}
-                            onUpload={handlePhotoUpload}
-                            isUploading={uploadMutation.isPending}
-                            disabled={form.formState.isSubmitting}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="nome"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nome *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Nome completo" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="bi"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>BI *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="000000000LA000" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="numero_mecanografico"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Número Mecanográfico *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="APM000" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="funcao"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Função *</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione a função" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="tecnico">Técnico</SelectItem>
-                              <SelectItem value="auxiliar">Auxiliar</SelectItem>
-                              <SelectItem value="supervisor">Supervisor</SelectItem>
-                              <SelectItem value="gestor">Gestor</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="telefone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Telefone *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="+244900000000" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email *</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="email" 
-                              placeholder="email@airplus.co.ao" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <DialogFooter>
-                    <Button
-                      type="submit"
-                      className="gradient-primary"
-                      disabled={form.formState.isSubmitting}
-                    >
-                      {form.formState.isSubmitting && (
-                        <Users2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
-                      {editingEmployee ? 'Atualizar' : 'Criar'}
-                    </Button>
-                  </DialogFooter>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+        {renderHeader()}
+        <div>
+          {renderDialog()}
         </div>
-
-        <Card>
-          <CardHeader>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Pesquisar por nome, BI, nº mecanográfico ou email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Funcionário</TableHead>
-                  <TableHead>BI</TableHead>
-                  <TableHead>Nº Mecanográfico</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Função</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEmployees.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center py-8 text-muted-foreground"
-                    >
-                      Nenhum funcionário registado
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredEmployees.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={item.foto_url} />
-                            <AvatarFallback>
-                              {item.nome
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")
-                                .toUpperCase()
-                                .substring(0, 2)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{item.nome}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {item.email}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{item.bi}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {item.numero_mecanografico}
-                      </TableCell>
-                      <TableCell>{item.telefone}</TableCell>
-                      <TableCell>{getFuncaoBadge(item.funcao)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditDialog(item)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        {renderEmployeeList()}
       </div>
     </MainLayout>
   );

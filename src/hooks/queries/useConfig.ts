@@ -265,43 +265,54 @@ export const useUpdateReportConfig = (serviceTypeId: string) => {
 // Role and Permission Hooks
 import type { Tables } from '@/integrations/supabase/types'
 
-type Role = Tables<'roles'> & {
-  permissions: Tables<'permissions'>[]
+export interface RolePermissionWithDetails {
+  id: string
+  role_id: string
+  permission_id: string
+  permission: {
+    id: string
+    resource: string
+    action: string
+    description: string | null
+    created_at: string
+    updated_at: string | null
+    created_by: string | null
+    updated_by: string | null
+  }
 }
-
-export interface ExtendedPermission extends Tables<'permissions'> {}
 
 export interface ExtendedRole extends Tables<'roles'> {
-  permissions: ExtendedPermission[]
-}
-
-interface RolePermissionWithDetails extends Tables<'role_permissions'> {
-  permission: ExtendedPermission
+  permissions: Tables<'permissions'>[]
 }
 
 export const useRoles = () => {
   return useQuery({
     queryKey: ROLES_KEYS.list(),
     queryFn: async () => {
-      // Fetch base roles
+      // Fetch base roles with strong typing
       const { data: roles, error: rolesError } = await supabase
         .from('roles')
-        .select('*')
+        .select()
         .order('created_at', { ascending: false })
         .returns<Tables<'roles'>[]>()
 
       if (rolesError) throw rolesError
-      if (!roles) return []
+      if (!roles?.length) return []
 
       // Fetch role permissions with nested permission details
       const { data: rolePermissions, error: permsError } = await supabase
         .from('role_permissions')
-        .select('*, permission:permissions(*)')
+        .select(`
+          id,
+          role_id,
+          permission_id,
+          permission:permissions (*)
+        `)
         .in('role_id', roles.map(r => r.id))
         .returns<RolePermissionWithDetails[]>()
 
       if (permsError) throw permsError
-      if (!rolePermissions) return []
+      if (!rolePermissions?.length) return roles.map(r => ({ ...r, permissions: [] }))
 
       // Map the roles with their permissions
       const rolesWithPermissions = roles.map(role => ({
@@ -309,7 +320,7 @@ export const useRoles = () => {
         permissions: rolePermissions
           .filter(p => p.role_id === role.id)
           .map(p => p.permission)
-      }))
+      })) satisfies ExtendedRole[]
 
       return rolesWithPermissions
     },
@@ -322,11 +333,13 @@ export const usePermissions = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('permissions')
-        .select('*')
+        .select()
         .order('resource', { ascending: true })
+        .returns<Tables<'permissions'>[]>()
 
       if (error) throw error
-      return data as Permission[]
+      if (!data) return []
+      return data
     },
   })
 }
