@@ -1,0 +1,356 @@
+openapi: 3.0.0
+info:
+  title: AirPlus AAMS API
+  description: API documentation for AirPlus Aircraft Activity Management System
+  version: '1.0'
+  contact:
+    name: AirPlus Angola
+    email: info@airplus.ao
+servers:
+  - url: https://mwyvxnwweagcfkgmmdmt.supabase.co/rest/v1
+    description: Supabase REST API
+
+security:
+  - apiKey: []
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: apikey
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        codigo:
+          type: string
+        email:
+          type: string
+          format: email
+        telefone:
+          type: string
+        logo_url:
+          type: string
+        ativo:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          format: uuid
+        updated_by:
+          type: string
+          format: uuid
+      required:
+        - nome
+        - codigo
+
+    Aircraft:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        matricula:
+          type: string
+        modelo:
+          type: string
+        client_id:
+          type: string
+          format: uuid
+        estado:
+          type: string
+          enum: [ativo, em_manutencao, inativo]
+        ultima_limpeza:
+          type: string
+          format: date-time
+        ativo:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - matricula
+        - modelo
+        - client_id
+
+    Employee:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        bi:
+          type: string
+        numero_mecanografico:
+          type: string
+        telefone:
+          type: string
+        email:
+          type: string
+          format: email
+        funcao:
+          type: string
+          enum: [super_admin, gestor, supervisor, tecnico, auxiliar, cliente]
+        foto_url:
+          type: string
+        ativo:
+          type: boolean
+      required:
+        - nome
+        - bi
+        - numero_mecanografico
+        - telefone
+        - email
+        - funcao
+
+    Shift:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        data_inicio:
+          type: string
+          format: date-time
+        data_fim:
+          type: string
+          format: date-time
+        supervisor_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [ativo, encerrado]
+      required:
+        - nome
+        - data_inicio
+        - data_fim
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        supervisor_id:
+          type: string
+          format: uuid
+        shift_id:
+          type: string
+          format: uuid
+        semana_referencia:
+          type: integer
+          minimum: 1
+          maximum: 52
+        mes_referencia:
+          type: integer
+          minimum: 1
+          maximum: 12
+      required:
+        - nome
+
+paths:
+  /clients:
+    get:
+      summary: List clients
+      operationId: getClients
+      parameters:
+        - $ref: '#/components/parameters/select'
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/range'
+      responses:
+        '200':
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Client'
+    post:
+      summary: Create client
+      operationId: createClient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Client'
+      responses:
+        '201':
+          description: Client created
+
+  /aircraft:
+    get:
+      summary: List aircraft
+      operationId: getAircraft
+      parameters:
+        - $ref: '#/components/parameters/select'
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/range'
+        - name: client_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of aircraft
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Aircraft'
+    post:
+      summary: Create aircraft
+      operationId: createAircraft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Aircraft'
+      responses:
+        '201':
+          description: Aircraft created
+
+  /employees:
+    get:
+      summary: List employees
+      operationId: getEmployees
+      parameters:
+        - $ref: '#/components/parameters/select'
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/range'
+      responses:
+        '200':
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+    post:
+      summary: Create employee
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Employee'
+      responses:
+        '201':
+          description: Employee created
+
+  /shifts:
+    get:
+      summary: List shifts
+      operationId: getShifts
+      parameters:
+        - $ref: '#/components/parameters/select'
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/range'
+      responses:
+        '200':
+          description: List of shifts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shift'
+    post:
+      summary: Create shift
+      operationId: createShift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Shift'
+      responses:
+        '201':
+          description: Shift created
+
+  /teams:
+    get:
+      summary: List teams
+      operationId: getTeams
+      parameters:
+        - $ref: '#/components/parameters/select'
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/range'
+      responses:
+        '200':
+          description: List of teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Team'
+    post:
+      summary: Create team
+      operationId: createTeam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Team'
+      responses:
+        '201':
+          description: Team created
+
+components:
+  parameters:
+    select:
+      name: select
+      in: query
+      description: Fields to return
+      schema:
+        type: string
+    order:
+      name: order
+      in: query
+      description: Field and direction to order by
+      schema:
+        type: string
+    range:
+      name: range
+      in: query
+      description: Range of records to return
+      schema:
+        type: string
