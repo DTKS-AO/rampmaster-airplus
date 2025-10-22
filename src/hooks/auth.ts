@@ -6,7 +6,7 @@ import type { Tables } from '@/integrations/supabase/types'
 
 interface UserWithMeta extends User {
   client_id?: string
-  role?: Tables<'users'>['role']
+  role?: string
 }
 
 export function useAuth() {

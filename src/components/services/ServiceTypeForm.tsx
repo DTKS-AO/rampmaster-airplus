@@ -38,7 +38,14 @@ interface ServiceTypeFormProps {
 export function ServiceTypeForm({ serviceType, onSuccess, onCancel }: ServiceTypeFormProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(serviceTypeSchema),
-    defaultValues: serviceType ?? {
+    defaultValues: serviceType ? {
+      name: serviceType.name,
+      description: serviceType.description || '',
+      checklist: (serviceType.checklist as any) || [],
+      required_photos: serviceType.required_photos || 0,
+      required_signatures: serviceType.required_signatures || 0,
+      active: serviceType.active ?? true
+    } : {
       name: '',
       description: '',
       checklist: [],
@@ -53,10 +60,19 @@ export function ServiceTypeForm({ serviceType, onSuccess, onCancel }: ServiceTyp
 
   const onSubmit = async (values: FormValues) => {
     try {
+      const data = {
+        name: values.name,
+        description: values.description,
+        checklist: values.checklist as any,
+        required_photos: values.required_photos,
+        required_signatures: values.required_signatures,
+        active: values.active
+      };
+      
       if (serviceType) {
-        await updateMutation.mutateAsync(values)
+        await updateMutation.mutateAsync(data)
       } else {
-        await createMutation.mutateAsync(values)
+        await createMutation.mutateAsync(data)
       }
       onSuccess?.()
     } catch (error) {

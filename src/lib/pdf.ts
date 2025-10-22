@@ -184,7 +184,7 @@ export async function generateReportPDF(report: any, options: GenerateReportPDFO
   }
 
   // Add footer with page numbers
-  const pageCount = doc.internal.getNumberOfPages();
+  const pageCount = (doc as any).internal.getNumberOfPages();
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   

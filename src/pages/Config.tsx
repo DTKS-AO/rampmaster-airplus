@@ -51,7 +51,7 @@ export function ConfigPage() {
         {isAdmin && (
           <TabsContent value="system">
             <SystemConfigForm
-              initialValues={systemConfig?.[0]?.config_value}
+              initialValues={systemConfig?.[0]?.config_value as any}
             />
           </TabsContent>
         )}
@@ -60,7 +60,7 @@ export function ConfigPage() {
           <TabsContent value="client">
             <ClientConfigForm
               clientId={user.client_id ?? ''}
-              initialValues={clientConfig?.[0]?.config_value}
+              initialValues={clientConfig?.[0]?.config_value as any}
             />
           </TabsContent>
         )}

@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { ServiceReport } from '@/integrations/supabase/report-types';
+import type { Tables } from '@/integrations/supabase/types';
+
+type ReportInsert = Omit<Tables<'service_reports'>, 'id' | 'created_at' | 'updated_at'>;
+type ReportUpdate = Partial<ReportInsert>;
 
 // Query keys
 const REPORT_KEY = 'reports';

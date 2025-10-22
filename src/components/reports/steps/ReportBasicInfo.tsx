@@ -59,6 +59,7 @@ export function ReportBasicInfo({ report, isPublished, onNext }: ReportBasicInfo
       await updateReport.mutateAsync({
         id: report.id,
         ...values,
+        service_date: values.service_date.toISOString(),
       });
       onNext();
     } catch (error) {

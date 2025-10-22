@@ -35,16 +35,16 @@ export const columns: ColumnDef<any>[] = [
     accessorKey: 'aircraft',
     header: 'Aeronave',
     cell: ({ row }) => {
-      const aircraft = row.getValue('aircraft');
-      return aircraft?.registration;
+      const aircraft = row.getValue('aircraft') as any;
+      return aircraft?.matricula;
     },
   },
   {
     accessorKey: 'client',
     header: 'Cliente',
     cell: ({ row }) => {
-      const client = row.getValue('client');
-      return client?.name;
+      const client = row.getValue('client') as any;
+      return client?.nome;
     },
   },
   {

@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Card, CardContent } from '@/components/ui/card'
 import { CalendarIcon } from 'lucide-react'
 import { format } from 'date-fns'
-import { DashboardFilters } from '@/types/dashboard'
+import type { DashboardFilters } from '@/types/dashboard'
 import { Tables } from '@/integrations/supabase/types'
 
 interface FilterProps {

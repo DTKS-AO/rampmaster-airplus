@@ -294,7 +294,6 @@ export const useRoles = () => {
         .from('roles')
         .select()
         .order('created_at', { ascending: false })
-        .returns<Tables<'roles'>[]>()
 
       if (rolesError) throw rolesError
       if (!roles?.length) return []
@@ -309,7 +308,6 @@ export const useRoles = () => {
           permission:permissions (*)
         `)
         .in('role_id', roles.map(r => r.id))
-        .returns<RolePermissionWithDetails[]>()
 
       if (permsError) throw permsError
       if (!rolePermissions?.length) return roles.map(r => ({ ...r, permissions: [] }))
@@ -335,7 +333,6 @@ export const usePermissions = () => {
         .from('permissions')
         .select()
         .order('resource', { ascending: true })
-        .returns<Tables<'permissions'>[]>()
 
       if (error) throw error
       if (!data) return []

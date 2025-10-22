@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useUploadReportPhoto } from '@/hooks/queries/useReport';
 import { toast } from 'sonner';
 import { ImagePlusIcon, Trash2Icon } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Card,
   CardContent,

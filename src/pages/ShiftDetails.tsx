@@ -131,7 +131,9 @@ export default function ShiftDetails() {
           </div>
         </div>
 
-        <ShiftStats shift={shift} className="mt-6" />
+        <div className="mt-6">
+          <ShiftStats shift={shift} />
+        </div>
 
         <div className="mt-4 grid grid-cols-2 gap-8">
           <div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { useAuth } from '@/hooks/auth';
 import { DataTable } from '@/components/reports/ReportsTable';
 import { columns } from '@/components/reports/ReportsColumns';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Reports() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [filters, setFilters] = useState<{
     status?: 'rascunho' | 'publicado';
     clientId?: string;
@@ -21,8 +23,10 @@ export default function Reports() {
 
   const { data: reports, isLoading } = useReportList(filters);
 
+  if (!user) return null;
+
   return (
-    <MainLayout>
+    <MainLayout user={user}>
       <div className="flex items-center justify-between space-y-2">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Relatórios</h2>

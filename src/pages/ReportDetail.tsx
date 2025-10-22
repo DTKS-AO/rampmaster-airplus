@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { useAuth } from '@/hooks/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useReport } from '@/hooks/queries/useReport';
 import { ReportBasicInfo } from '@/components/reports/steps/ReportBasicInfo';
@@ -14,6 +15,7 @@ import { toast } from 'sonner';
 export default function ReportDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('info');
   const { data: report, isLoading } = useReport(id || '');
 
@@ -33,9 +35,9 @@ export default function ReportDetail() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !user) {
     return (
-      <MainLayout>
+      <MainLayout user={user}>
         <div>Carregando...</div>
       </MainLayout>
     );
@@ -50,7 +52,7 @@ export default function ReportDetail() {
   const isPublished = report.status === 'publicado';
 
   return (
-    <MainLayout>
+    <MainLayout user={user}>
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">
