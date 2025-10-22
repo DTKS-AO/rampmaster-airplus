@@ -19,7 +19,7 @@ export default function Reports() {
     shiftId?: string;
     startDate?: Date;
     endDate?: Date;
-  }>();
+  }>({});
 
   const { data: reports, isLoading } = useReportList(filters);
 
