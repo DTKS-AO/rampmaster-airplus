@@ -9,6 +9,7 @@ import Aircraft from "./pages/Aircraft";
 import Employees from "./pages/Employees";
 import Shifts from "./pages/Shifts";
 import ShiftDetails from "./pages/ShiftDetails";
+import Services from "./pages/Services";
 import NotFound from "./pages/NotFound";
 import Test from "./pages/Test";
 import Reports from "./pages/Reports";
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/employees" element={<Employees />} />
           <Route path="/shifts" element={<Shifts />} />
           <Route path="/shifts/:id" element={<ShiftDetails />} />
+          <Route path="/services" element={<Services />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/reports/:id" element={<ReportDetail />} />
           <Route path="/reports/new" element={<ReportDetail />} />

@@ -37,9 +37,9 @@ export const MainLayout = ({ children, user }: MainLayoutProps) => {
     { icon: Plane, label: "Aeronaves", path: "/aircraft" },
     { icon: Users, label: "Funcionários", path: "/employees" },
     { icon: Clock, label: "Turnos", path: "/shifts" },
-    { icon: UsersRound, label: "Equipas", path: "/teams" },
     { icon: ClipboardList, label: "Relatórios", path: "/reports" },
-    { icon: Settings, label: "Configurações", path: "/settings" },
+    { icon: UsersRound, label: "Serviços", path: "/services" },
+    { icon: Settings, label: "Configurações", path: "/config" },
   ];
 
   const MenuItem = ({ icon: Icon, label, path, mobile = false }: any) => (
